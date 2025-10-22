@@ -592,10 +592,7 @@ mod tests {
         let response = store
             .get_opts(
                 &path,
-                GetOptions {
-                    head: true,
-                    ..Default::default()
-                },
+                GetOptions::new().with_head(true),
             )
             .await
             .unwrap();
@@ -612,10 +609,7 @@ mod tests {
         let response = store
             .get_opts(
                 &path,
-                GetOptions {
-                    head: true,
-                    ..Default::default()
-                },
+                GetOptions::new().with_head(true),
             )
             .await
             .unwrap();
@@ -642,10 +636,7 @@ mod tests {
         let response = store
             .get_opts(
                 &path,
-                GetOptions {
-                    head: true,
-                    ..Default::default()
-                },
+                GetOptions::new().with_head(true),
             )
             .await
             .unwrap();
@@ -666,10 +657,7 @@ mod tests {
         let response = store
             .get_opts(
                 &path,
-                GetOptions {
-                    head: true,
-                    ..Default::default()
-                },
+                GetOptions::new().with_head(true),
             )
             .await
             .unwrap();

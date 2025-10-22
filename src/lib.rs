@@ -646,10 +646,19 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     ///
     /// See [`GetRange::Bounded`] for more details on how `range` gets interpreted
     async fn get_range(&self, location: &Path, range: Range<u64>) -> Result<Bytes> {
-        let options = GetOptions {
-            range: Some(range.into()),
-            ..Default::default()
-        };
+        let options = GetOptions::new().with_range(range);
+        self.get_opts(location, options).await?.bytes().await
+    }
+
+    /// Return the bytes that are stored at the specified location
+    /// in the given byte range with options.
+    /// 
+    /// The `options` provided will be augmented with the specified `range`.
+    /// Any existing `range` in `options` will be overridden.
+    ///
+    /// See [`GetRange::Bounded`] for more details on how `range` gets interpreted
+    async fn get_range_opts(&self, location: &Path, range: Range<u64>, options: GetOptions) -> Result<Bytes> {
+        let options = options.with_range(range);
         self.get_opts(location, options).await?.bytes().await
     }
 
@@ -664,12 +673,20 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
         .await
     }
 
+    /// Return the bytes that are stored at the specified location
+    /// in the given byte ranges with options.
+    async fn get_ranges_opts(&self, location: &Path, ranges: &[Range<u64>], options: GetOptions) -> Result<Vec<Bytes>> {
+        coalesce_ranges(
+            ranges,
+            |range| self.get_range_opts(location, range, options.clone()),
+            OBJECT_STORE_COALESCE_DEFAULT,
+        )
+        .await
+    }
+
     /// Return the metadata for the specified location
     async fn head(&self, location: &Path) -> Result<ObjectMeta> {
-        let options = GetOptions {
-            head: true,
-            ..Default::default()
-        };
+        let options = GetOptions::new().with_head(true);
         Ok(self.get_opts(location, options).await?.meta)
     }
 
@@ -1034,6 +1051,84 @@ impl GetOptions {
             }
         }
         Ok(())
+    }
+
+    /// Create a new [`GetOptions`]
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets the `if_match` condition.
+    /// 
+    /// See [`GetOptions::if_match`]
+    #[must_use]
+    pub fn with_if_match(mut self, etag: impl Into<String>) -> Self {
+        self.if_match = Some(etag.into());
+        self
+    }
+
+    /// Sets the `if_none_match` condition.
+    /// 
+    /// See [`GetOptions::if_none_match`]
+    #[must_use]
+    pub fn with_if_none_match(mut self, etag: impl Into<String>) -> Self {
+        self.if_none_match = Some(etag.into());
+        self
+    }
+
+    /// Sets the `if_modified_since` condition.
+    /// 
+    /// See [`GetOptions::if_modified_since`]
+    #[must_use]
+    pub fn with_if_modified_since(mut self, dt: impl Into<DateTime<Utc>>) -> Self {
+        self.if_modified_since = Some(dt.into());
+        self
+    }
+
+    /// Sets the `if_unmodified_since` condition.
+    /// 
+    /// See [`GetOptions::if_unmodified_since`]
+    #[must_use]
+    pub fn with_if_unmodified_since(mut self, dt: impl Into<DateTime<Utc>>) -> Self {
+        self.if_unmodified_since = Some(dt.into());
+        self
+    }
+
+    /// Sets the `range` condition.
+    /// 
+    /// See [`GetOptions::range`]
+    #[must_use]
+    pub fn with_range(mut self, range: impl Into<GetRange>) -> Self {
+        self.range = Some(range.into());
+        self
+    }
+
+    /// Sets the `version` condition.
+    /// 
+    /// See [`GetOptions::version`]
+    #[must_use]
+    pub fn with_version(mut self, version: impl Into<String>) -> Self {
+        self.version = Some(version.into());
+        self
+    }
+
+    /// Sets the `head` condition.
+    /// 
+    /// See [`GetOptions::head`]
+    #[must_use]
+    pub fn with_head(mut self, head: impl Into<bool>) -> Self {
+        self.head = head.into();
+        self
+    }
+
+    /// Sets the `extensions` condition.
+    /// 
+    /// See [`GetOptions::extensions`]
+    #[must_use]
+    pub fn with_extensions(mut self, extensions: Extensions) -> Self {
+        self.extensions = extensions;
+        self
     }
 }
 
@@ -1669,5 +1764,42 @@ mod tests {
         let mut extensions = Extensions::new();
         extensions.insert("test-key");
         assert!(extensions.get::<&str>().is_some());
+    }
+
+    #[test]
+    fn test_get_options_builder() {
+        let dt = Utc::now();
+        let extensions = Extensions::new();
+
+        let options = GetOptions::new();
+
+        // assert defaults
+        assert_eq!(options.if_match, None);
+        assert_eq!(options.if_none_match, None);
+        assert_eq!(options.if_modified_since, None);
+        assert_eq!(options.if_unmodified_since, None);
+        assert_eq!(options.range, None);
+        assert_eq!(options.version, None);
+        assert_eq!(options.head, false);
+        assert!(options.extensions.get::<&str>().is_none());
+
+        let options = options
+            .with_if_match("etag-match")
+            .with_if_none_match("etag-none-match")
+            .with_if_modified_since(dt)
+            .with_if_unmodified_since(dt)
+            .with_range(0..100)
+            .with_version("version-1")
+            .with_head(true)
+            .with_extensions(extensions.clone());
+
+        assert_eq!(options.if_match, Some("etag-match".to_string()));
+        assert_eq!(options.if_none_match, Some("etag-none-match".to_string()));
+        assert_eq!(options.if_modified_since, Some(dt));
+        assert_eq!(options.if_unmodified_since, Some(dt));
+        assert_eq!(options.range, Some(GetRange::Bounded(0..100)));
+        assert_eq!(options.version, Some("version-1".to_string()));
+        assert_eq!(options.head, true);
+        assert_eq!(options.extensions.get::<&str>(), extensions.get::<&str>());
     }
 }
