@@ -1779,7 +1779,7 @@ mod tests {
         assert_eq!(options.if_unmodified_since, None);
         assert_eq!(options.range, None);
         assert_eq!(options.version, None);
-        assert_eq!(options.head, false);
+        assert!(!options.head);
         assert!(options.extensions.get::<&str>().is_none());
 
         let options = options
@@ -1798,7 +1798,7 @@ mod tests {
         assert_eq!(options.if_unmodified_since, Some(dt));
         assert_eq!(options.range, Some(GetRange::Bounded(0..100)));
         assert_eq!(options.version, Some("version-1".to_string()));
-        assert_eq!(options.head, true);
+        assert!(options.head);
         assert_eq!(options.extensions.get::<&str>(), extensions.get::<&str>());
     }
 }
