@@ -556,7 +556,7 @@ pub async fn get_opts(storage: &dyn ObjectStore) {
     let meta = storage.head(&path).await.unwrap();
     assert_eq!(meta.e_tag.unwrap(), new_tag);
 
-    let options = GetOptions::new().with_if_match(tag.clone());
+    let options = GetOptions::new().with_if_match(new_tag.clone());
     storage.get_opts(&path, options).await.unwrap();
 
     let options = GetOptions::new().with_if_match(tag);
