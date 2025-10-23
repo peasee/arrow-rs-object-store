@@ -324,6 +324,31 @@
 //! # }
 //! ```
 //!
+//! To retrieve ranges from a versioned object, use [`ObjectStore::get_opts`] by specifying the range in the [`GetOptions`].
+//!
+//! ```ignore-wasm32
+//! # use object_store::local::LocalFileSystem;
+//! # use object_store::ObjectStore;
+//! # use std::sync::Arc;
+//! # use bytes::Bytes;
+//! # use tokio::io::AsyncWriteExt;
+//! # use object_store::path::Path;
+//! # fn get_object_store() -> Arc<dyn ObjectStore> {
+//! #   Arc::new(LocalFileSystem::new())
+//! # }
+//! # async fn get_range_with_options() {
+//! #
+//! let object_store: Arc<dyn ObjectStore> = get_object_store();
+//! let path = Path::from("data/large_file");
+//! let ranges = vec![90..100, 400..600, 0..10];
+//! for range in ranges {
+//!     let opts = GetOptions::default().range(range);
+//!     let data = object_store.get_opts(&path, opts).await.unwrap();
+//!     // Do something with the data
+//! }
+//! # }
+//! ``````
+//!
 //! # Vectored Write
 //!
 //! When writing data it is often the case that the size of the output is not known ahead of time.
@@ -403,10 +428,7 @@
 //!             Some(e) => match e.refreshed_at.elapsed() < Duration::from_secs(10) {
 //!                 true => e.data.clone(), // Return cached data
 //!                 false => { // Check if remote version has changed
-//!                     let opts = GetOptions {
-//!                         if_none_match: Some(e.e_tag.clone()),
-//!                         ..GetOptions::default()
-//!                     };
+//!                     let opts = GetOptions::new().with_if_none_match(e.e_tag.clone());
 //!                     match self.store.get_opts(&path, opts).await {
 //!                         Ok(d) => e.data = d.bytes().await?,
 //!                         Err(Error::NotModified { .. }) => {} // Data has not changed
@@ -651,34 +673,11 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     }
 
     /// Return the bytes that are stored at the specified location
-    /// in the given byte range with options.
-    /// 
-    /// The `options` provided will be augmented with the specified `range`.
-    /// Any existing `range` in `options` will be overridden.
-    ///
-    /// See [`GetRange::Bounded`] for more details on how `range` gets interpreted
-    async fn get_range_opts(&self, location: &Path, range: Range<u64>, options: GetOptions) -> Result<Bytes> {
-        let options = options.with_range(range);
-        self.get_opts(location, options).await?.bytes().await
-    }
-
-    /// Return the bytes that are stored at the specified location
     /// in the given byte ranges
     async fn get_ranges(&self, location: &Path, ranges: &[Range<u64>]) -> Result<Vec<Bytes>> {
         coalesce_ranges(
             ranges,
             |range| self.get_range(location, range),
-            OBJECT_STORE_COALESCE_DEFAULT,
-        )
-        .await
-    }
-
-    /// Return the bytes that are stored at the specified location
-    /// in the given byte ranges with options.
-    async fn get_ranges_opts(&self, location: &Path, ranges: &[Range<u64>], options: GetOptions) -> Result<Vec<Bytes>> {
-        coalesce_ranges(
-            ranges,
-            |range| self.get_range_opts(location, range, options.clone()),
             OBJECT_STORE_COALESCE_DEFAULT,
         )
         .await
@@ -1060,7 +1059,7 @@ impl GetOptions {
     }
 
     /// Sets the `if_match` condition.
-    /// 
+    ///
     /// See [`GetOptions::if_match`]
     #[must_use]
     pub fn with_if_match(mut self, etag: impl Into<String>) -> Self {
@@ -1069,7 +1068,7 @@ impl GetOptions {
     }
 
     /// Sets the `if_none_match` condition.
-    /// 
+    ///
     /// See [`GetOptions::if_none_match`]
     #[must_use]
     pub fn with_if_none_match(mut self, etag: impl Into<String>) -> Self {
@@ -1078,7 +1077,7 @@ impl GetOptions {
     }
 
     /// Sets the `if_modified_since` condition.
-    /// 
+    ///
     /// See [`GetOptions::if_modified_since`]
     #[must_use]
     pub fn with_if_modified_since(mut self, dt: impl Into<DateTime<Utc>>) -> Self {
@@ -1087,7 +1086,7 @@ impl GetOptions {
     }
 
     /// Sets the `if_unmodified_since` condition.
-    /// 
+    ///
     /// See [`GetOptions::if_unmodified_since`]
     #[must_use]
     pub fn with_if_unmodified_since(mut self, dt: impl Into<DateTime<Utc>>) -> Self {
@@ -1096,7 +1095,7 @@ impl GetOptions {
     }
 
     /// Sets the `range` condition.
-    /// 
+    ///
     /// See [`GetOptions::range`]
     #[must_use]
     pub fn with_range(mut self, range: impl Into<GetRange>) -> Self {
@@ -1105,7 +1104,7 @@ impl GetOptions {
     }
 
     /// Sets the `version` condition.
-    /// 
+    ///
     /// See [`GetOptions::version`]
     #[must_use]
     pub fn with_version(mut self, version: impl Into<String>) -> Self {
@@ -1114,7 +1113,7 @@ impl GetOptions {
     }
 
     /// Sets the `head` condition.
-    /// 
+    ///
     /// See [`GetOptions::head`]
     #[must_use]
     pub fn with_head(mut self, head: impl Into<bool>) -> Self {
@@ -1123,7 +1122,7 @@ impl GetOptions {
     }
 
     /// Sets the `extensions` condition.
-    /// 
+    ///
     /// See [`GetOptions::extensions`]
     #[must_use]
     pub fn with_extensions(mut self, extensions: Extensions) -> Self {

@@ -134,14 +134,16 @@ async fn test_get_range_opts_with_etag() {
     let file = store.get(&path).await.unwrap();
     let etag = file.meta.e_tag.clone().unwrap();
 
-    let opts = GetOptions::new().with_if_match(etag);
-    let res = store.get_range_opts(&path, 0..(expected.len() as u64 * 2), opts).await.unwrap();
-    assert_eq!(res, expected);
+    let opts = GetOptions::new()
+        .with_if_match(etag)
+        .with_range(0..(expected.len() as u64 * 2));
+    let res = store.get_opts(&path, opts).await.unwrap();
+    assert_eq!(res.bytes().await.unwrap(), expected);
 
     // pulling a file with an invalid etag should fail
-    let opts = GetOptions::new().with_if_match("invalid-etag");
-    let err = store
-        .get_range_opts(&path, 0..(expected.len() as u64 * 2), opts)
-        .await;
+    let opts = GetOptions::new()
+        .with_if_match("invalid-etag")
+        .with_range(0..(expected.len() as u64 * 2));
+    let err = store.get_opts(&path, opts).await;
     assert!(err.is_err());
 }
