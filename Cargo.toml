@@ -85,6 +85,7 @@ hyper = { version = "1.2", features = ["server"] }
 hyper-util = "0.1"
 rand = "0.9"
 tempfile = "3.1.0"
+tokio = { version = "1.29.0", features = ["sync", "macros", "rt", "time", "io-util", "rt-multi-thread"] }
 regex = "1.11.1"
 # The "gzip" feature for reqwest is enabled for an integration test.
 reqwest = { version = "0.12", features = ["gzip"] }
@@ -106,3 +107,15 @@ features = ["js"]
 name = "get_range_file"
 path = "tests/get_range_file.rs"
 required-features = ["fs"]
+
+[[example]]
+name = "get"
+path = "examples/get.rs"
+
+[[example]]
+name = "get_range"
+path = "examples/get_range.rs"
+
+[[example]]
+name = "get_range_with_etag"
+path = "examples/get_range_with_etag.rs"

@@ -666,7 +666,9 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     /// Return the bytes that are stored at the specified location
     /// in the given byte range.
     ///
-    /// See [`GetRange::Bounded`] for more details on how `range` gets interpreted
+    /// See [`GetRange::Bounded`] for more details on how `range` gets interpreted.
+    /// 
+    /// To retrieve a range of bytes from a versioned object, use [`ObjectStore::get_opts`] by specifying the range in the [`GetOptions`].
     async fn get_range(&self, location: &Path, range: Range<u64>) -> Result<Bytes> {
         let options = GetOptions::new().with_range(range);
         self.get_opts(location, options).await?.bytes().await
