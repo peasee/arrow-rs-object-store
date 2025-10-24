@@ -24,10 +24,7 @@ concurrency:
 
 # trigger for all PRs that touch certain files and changes to main
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   clippy:
