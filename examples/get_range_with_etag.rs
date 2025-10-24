@@ -15,18 +15,17 @@ async fn main() {
         .expect("Failed to put object");
 
     // Get the object from the store to figure out the right etag
-    let result: object_store::GetResult = store
-        .get(&location)
-        .await
-        .expect("Failed to get object");
-    
+    let result: object_store::GetResult = store.get(&location).await.expect("Failed to get object");
+
     let etag = result.meta.e_tag.expect("ETag should be present");
 
     // Get the object from the store with range and etag
     let bytes = store
         .get_opts(
             &location,
-            GetOptions::new().with_range(0..5).with_if_match(etag.clone())
+            GetOptions::new()
+                .with_range(0..5)
+                .with_if_match(etag.clone()),
         )
         .await
         .expect("Failed to get object with range and etag")
@@ -34,7 +33,11 @@ async fn main() {
         .await
         .expect("Failed to read bytes");
 
-    println!("Retrieved range [0-5] with ETag {}: {}", etag, String::from_utf8_lossy(&bytes));
+    println!(
+        "Retrieved range [0-5] with ETag {}: {}",
+        etag,
+        String::from_utf8_lossy(&bytes)
+    );
 
     // Show that if the etag does not match, we get an error
     let wrong_etag = "wrong-etag".to_string();

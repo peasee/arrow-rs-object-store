@@ -15,10 +15,7 @@ async fn main() {
         .expect("Failed to put object");
 
     // Get the object from the store
-    let get_result = store
-        .get(&location)
-        .await
-        .expect("Failed to get object");
+    let get_result = store.get(&location).await.expect("Failed to get object");
     let bytes = get_result.bytes().await.expect("Failed to read bytes");
     println!("Retrieved content: {}", String::from_utf8_lossy(&bytes));
 }

@@ -85,13 +85,15 @@ hyper = { version = "1.2", features = ["server"] }
 hyper-util = "0.1"
 rand = "0.9"
 tempfile = "3.1.0"
-tokio = { version = "1.29.0", features = ["sync", "macros", "rt", "time", "io-util", "rt-multi-thread"] }
 regex = "1.11.1"
 # The "gzip" feature for reqwest is enabled for an integration test.
 reqwest = { version = "0.12", features = ["gzip"] }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies]
 wasm-bindgen-test = "0.3.50"
+
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dev-dependencies]
+tokio = { version = "1.29.0", features = ["sync", "macros", "rt", "time", "io-util", "rt-multi-thread"] }
 
 [dev-dependencies.getrandom_v03]
 package = "getrandom"
