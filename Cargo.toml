@@ -92,9 +92,6 @@ reqwest = { version = "0.12", features = ["gzip"] }
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies]
 wasm-bindgen-test = "0.3.50"
 
-[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dev-dependencies]
-tokio = { version = "1.29.0", features = ["sync", "macros", "rt", "time", "io-util", "rt-multi-thread"] }
-
 [dev-dependencies.getrandom_v03]
 package = "getrandom"
 version = "0.3"
@@ -109,15 +106,3 @@ features = ["js"]
 name = "get_range_file"
 path = "tests/get_range_file.rs"
 required-features = ["fs"]
-
-[[example]]
-name = "get"
-path = "examples/get.rs"
-
-[[example]]
-name = "get_range"
-path = "examples/get_range.rs"
-
-[[example]]
-name = "get_range_with_etag"
-path = "examples/get_range_with_etag.rs"

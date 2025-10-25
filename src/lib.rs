@@ -128,7 +128,7 @@
 //! to support a wide variety of user-defined store configurations, with minimal additional
 //! application complexity.
 //!
-//! ```no_run,ignore-wasm32
+//! ```no_run
 //! # #[cfg(feature = "aws")] {
 //! # use url::Url;
 //! # use object_store::{parse_url, parse_url_opts};
@@ -163,7 +163,7 @@
 //! Use the [`ObjectStore::list`] method to iterate over objects in
 //! remote storage or files in the local filesystem:
 //!
-//! ```ignore-wasm32
+//! ```
 //! # use object_store::local::LocalFileSystem;
 //! # use std::sync::Arc;
 //! # use object_store::{path::Path, ObjectStore};
@@ -207,7 +207,7 @@
 //! Use the [`ObjectStore::get`] method to fetch the data bytes
 //! from remote storage or files in the local filesystem as a stream.
 //!
-//! ```ignore-wasm32
+//! ```
 //! # use futures::TryStreamExt;
 //! # use object_store::local::LocalFileSystem;
 //! # use std::sync::Arc;
@@ -254,7 +254,7 @@
 //!
 //! Use the [`ObjectStore::put`] method to atomically write data.
 //!
-//! ```ignore-wasm32
+//! ```
 //! # use object_store::local::LocalFileSystem;
 //! # use object_store::{ObjectStore, PutPayload};
 //! # use std::sync::Arc;
@@ -275,7 +275,7 @@
 //!
 //! Use the [`ObjectStore::put_multipart`] method to atomically write a large amount of data
 //!
-//! ```ignore-wasm32
+//! ```
 //! # use object_store::local::LocalFileSystem;
 //! # use object_store::{ObjectStore, WriteMultipart};
 //! # use std::sync::Arc;
@@ -304,7 +304,7 @@
 //! [`ObjectStore::get_ranges`] provides an efficient way to perform such vectored IO, and will
 //! automatically coalesce adjacent ranges into an appropriate number of parallel requests.
 //!
-//! ```ignore-wasm32
+//! ```
 //! # use object_store::local::LocalFileSystem;
 //! # use object_store::ObjectStore;
 //! # use std::sync::Arc;
@@ -326,7 +326,7 @@
 //!
 //! To retrieve ranges from a versioned object, use [`ObjectStore::get_opts`] by specifying the range in the [`GetOptions`].
 //!
-//! ```ignore-wasm32
+//! ```
 //! # use object_store::local::LocalFileSystem;
 //! # use object_store::ObjectStore;
 //! # use object_store::GetOptions;
@@ -343,7 +343,7 @@
 //! let path = Path::from("data/large_file");
 //! let ranges = vec![90..100, 400..600, 0..10];
 //! for range in ranges {
-//!     let opts = GetOptions::default().range(range);
+//!     let opts = GetOptions::default().with_range(range);
 //!     let data = object_store.get_opts(&path, opts).await.unwrap();
 //!     // Do something with the data
 //! }
@@ -362,7 +362,7 @@
 //! possible to instead allocate memory in chunks and avoid bump allocating. [`PutPayloadMut`]
 //! encapsulates this approach
 //!
-//! ```ignore-wasm32
+//! ```
 //! # use object_store::local::LocalFileSystem;
 //! # use object_store::{ObjectStore, PutPayloadMut};
 //! # use std::sync::Arc;
@@ -657,11 +657,157 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     ) -> Result<Box<dyn MultipartUpload>>;
 
     /// Return the bytes that are stored at the specified location.
+    ///
+    /// ## Example
+    ///
+    /// This example uses a basic local filesystem object store to get an object.
+    ///
+    /// ```
+    /// # use object_store::local::LocalFileSystem;
+    /// # use tempfile::tempdir;
+    /// # use object_store::{path::Path, ObjectStore};
+    /// async fn get_example() {
+    ///     let tmp = tempdir().unwrap();
+    ///     let store = LocalFileSystem::new_with_prefix(tmp.path()).unwrap();
+    ///     let location = Path::from("example.txt");
+    ///     let content = b"Hello, Object Store!";
+    ///
+    ///     // Put the object into the store
+    ///     store
+    ///         .put(&location, content.as_ref().into())
+    ///         .await
+    ///         .expect("Failed to put object");
+    ///
+    ///     // Get the object from the store
+    ///     let get_result = store.get(&location).await.expect("Failed to get object");
+    ///     let bytes = get_result.bytes().await.expect("Failed to read bytes");
+    ///     println!("Retrieved content: {}", String::from_utf8_lossy(&bytes));
+    /// }
+    /// ```
     async fn get(&self, location: &Path) -> Result<GetResult> {
         self.get_opts(location, GetOptions::default()).await
     }
 
     /// Perform a get request with options
+    ///
+    /// ## Example
+    ///
+    /// This example uses a basic local filesystem object store to get an object with a specific etag.
+    /// On the local filesystem, supplying an invalid etag will error.
+    /// Versioned object stores will return the specified object version, if it exists.
+    ///
+    /// ```
+    /// # use object_store::local::LocalFileSystem;
+    /// # use tempfile::tempdir;
+    /// # use object_store::{path::Path, ObjectStore, GetOptions};
+    /// async fn get_opts_example() {
+    ///     let tmp = tempdir().unwrap();
+    ///     let store = LocalFileSystem::new_with_prefix(tmp.path()).unwrap();
+    ///     let location = Path::from("example.txt");
+    ///     let content = b"Hello, Object Store!";
+    ///
+    ///     // Put the object into the store
+    ///     store
+    ///         .put(&location, content.as_ref().into())
+    ///         .await
+    ///         .expect("Failed to put object");
+    ///
+    ///     // Get the object from the store to figure out the right etag
+    ///     let result: object_store::GetResult = store.get(&location).await.expect("Failed to get object");
+    ///
+    ///     let etag = result.meta.e_tag.expect("ETag should be present");
+    ///
+    ///     // Get the object from the store with range and etag
+    ///     let bytes = store
+    ///         .get_opts(
+    ///             &location,
+    ///             GetOptions::new()
+    ///                 .with_if_match(etag.clone()),
+    ///         )
+    ///         .await
+    ///         .expect("Failed to get object with range and etag")
+    ///         .bytes()
+    ///         .await
+    ///         .expect("Failed to read bytes");
+    ///
+    ///     println!(
+    ///         "Retrieved with ETag {}: {}",
+    ///         etag,
+    ///         String::from_utf8_lossy(&bytes)
+    ///     );
+    ///
+    ///     // Show that if the etag does not match, we get an error
+    ///     let wrong_etag = "wrong-etag".to_string();
+    ///     match store
+    ///         .get_opts(
+    ///             &location,
+    ///             GetOptions::new().with_if_match(wrong_etag)
+    ///         )
+    ///         .await
+    ///     {
+    ///         Ok(_) => println!("Unexpectedly succeeded with wrong ETag"),
+    ///         Err(e) => println!("On a non-versioned object store, getting an invalid ETag ('wrong-etag') results in an error as expected: {}", e),
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// To retrieve a range of bytes from a versioned object, specify the range in the [`GetOptions`] supplied to this method.
+    ///
+    /// ```
+    /// # use object_store::local::LocalFileSystem;
+    /// # use tempfile::tempdir;
+    /// # use object_store::{path::Path, ObjectStore, GetOptions};
+    /// async fn get_opts_range_example() {
+    ///     let tmp = tempdir().unwrap();
+    ///     let store = LocalFileSystem::new_with_prefix(tmp.path()).unwrap();
+    ///     let location = Path::from("example.txt");
+    ///     let content = b"Hello, Object Store!";
+    ///
+    ///     // Put the object into the store
+    ///     store
+    ///         .put(&location, content.as_ref().into())
+    ///         .await
+    ///         .expect("Failed to put object");
+    ///
+    ///     // Get the object from the store to figure out the right etag
+    ///     let result: object_store::GetResult = store.get(&location).await.expect("Failed to get object");
+    ///
+    ///     let etag = result.meta.e_tag.expect("ETag should be present");
+    ///
+    ///     // Get the object from the store with range and etag
+    ///     let bytes = store
+    ///         .get_opts(
+    ///             &location,
+    ///             GetOptions::new()
+    ///                 .with_range(0..5)
+    ///                 .with_if_match(etag.clone()),
+    ///         )
+    ///         .await
+    ///         .expect("Failed to get object with range and etag")
+    ///         .bytes()
+    ///         .await
+    ///         .expect("Failed to read bytes");
+    ///
+    ///     println!(
+    ///         "Retrieved range [0-5] with ETag {}: {}",
+    ///         etag,
+    ///         String::from_utf8_lossy(&bytes)
+    ///     );
+    ///
+    ///     // Show that if the etag does not match, we get an error
+    ///     let wrong_etag = "wrong-etag".to_string();
+    ///     match store
+    ///         .get_opts(
+    ///             &location,
+    ///             GetOptions::new().with_range(0..5).with_if_match(wrong_etag)
+    ///         )
+    ///         .await
+    ///     {
+    ///         Ok(_) => println!("Unexpectedly succeeded with wrong ETag"),
+    ///         Err(e) => println!("On a non-versioned object store, getting an invalid ETag ('wrong-etag') results in an error as expected: {}", e),
+    ///     }
+    /// }
+    /// ```
     async fn get_opts(&self, location: &Path, options: GetOptions) -> Result<GetResult>;
 
     /// Return the bytes that are stored at the specified location
@@ -670,6 +816,35 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     /// See [`GetRange::Bounded`] for more details on how `range` gets interpreted.
     ///
     /// To retrieve a range of bytes from a versioned object, use [`ObjectStore::get_opts`] by specifying the range in the [`GetOptions`].
+    ///
+    /// ## Examples
+    ///
+    /// This example uses a basic local filesystem object store to get a byte range from an object.
+    ///
+    /// ```
+    /// # use object_store::local::LocalFileSystem;
+    /// # use tempfile::tempdir;
+    /// # use object_store::{path::Path, ObjectStore};
+    /// async fn get_range_example() {
+    ///     let tmp = tempdir().unwrap();
+    ///     let store = LocalFileSystem::new_with_prefix(tmp.path()).unwrap();
+    ///     let location = Path::from("example.txt");
+    ///     let content = b"Hello, Object Store!";
+    ///
+    ///     // Put the object into the store
+    ///     store
+    ///         .put(&location, content.as_ref().into())
+    ///         .await
+    ///         .expect("Failed to put object");
+    ///
+    ///     // Get the object from the store
+    ///     let bytes = store
+    ///         .get_range(&location, 0..5)
+    ///         .await
+    ///         .expect("Failed to get object");
+    ///     println!("Retrieved range [0-5]: {}", String::from_utf8_lossy(&bytes));
+    /// }
+    /// ```
     async fn get_range(&self, location: &Path, range: Range<u64>) -> Result<Bytes> {
         let options = GetOptions::new().with_range(range);
         self.get_opts(location, options).await?.bytes().await
@@ -712,7 +887,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     /// filesystems, GCP, and Azure return an error, while S3 and in-memory will
     /// return Ok. If it is an error, it will be [`Error::NotFound`].
     ///
-    /// ```ignore-wasm32
+    /// ```
     /// # use futures::{StreamExt, TryStreamExt};
     /// # use object_store::local::LocalFileSystem;
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
