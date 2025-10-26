@@ -199,7 +199,7 @@ jobs:
         with:
           node-version: 20
       - name: Run wasm32-unknown-unknown tests (via Node)
-        run: wasm-pack test --node --features http --no-default-features --lib --bins --tests
+        run: wasm-pack test --node --features http --no-default-features
 
   windows:
     name: cargo test LocalFileSystem (win64)
