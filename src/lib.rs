@@ -343,7 +343,7 @@
 //! let path = Path::from("data/large_file");
 //! let ranges = vec![90..100, 400..600, 0..10];
 //! for range in ranges {
-//!     let opts = GetOptions::default().with_range(range);
+//!     let opts = GetOptions::default().with_range(Some(range));
 //!     let data = object_store.get_opts(&path, opts).await.unwrap();
 //!     // Do something with the data
 //! }
@@ -429,7 +429,7 @@
 //!             Some(e) => match e.refreshed_at.elapsed() < Duration::from_secs(10) {
 //!                 true => e.data.clone(), // Return cached data
 //!                 false => { // Check if remote version has changed
-//!                     let opts = GetOptions::new().with_if_none_match(e.e_tag.clone());
+//!                     let opts = GetOptions::new().with_if_none_match(Some(e.e_tag.clone()));
 //!                     match self.store.get_opts(&path, opts).await {
 //!                         Ok(d) => e.data = d.bytes().await?,
 //!                         Err(Error::NotModified { .. }) => {} // Data has not changed
@@ -722,7 +722,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     ///         .get_opts(
     ///             &location,
     ///             GetOptions::new()
-    ///                 .with_if_match(etag.clone()),
+    ///                 .with_if_match(Some(etag.clone())),
     ///         )
     ///         .await
     ///         .expect("Failed to get object with range and etag")
@@ -741,7 +741,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     ///     match store
     ///         .get_opts(
     ///             &location,
-    ///             GetOptions::new().with_if_match(wrong_etag)
+    ///             GetOptions::new().with_if_match(Some(wrong_etag))
     ///         )
     ///         .await
     ///     {
@@ -779,8 +779,8 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     ///         .get_opts(
     ///             &location,
     ///             GetOptions::new()
-    ///                 .with_range(0..5)
-    ///                 .with_if_match(etag.clone()),
+    ///                 .with_range(Some(0..5))
+    ///                 .with_if_match(Some(etag.clone())),
     ///         )
     ///         .await
     ///         .expect("Failed to get object with range and etag")
@@ -799,7 +799,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     ///     match store
     ///         .get_opts(
     ///             &location,
-    ///             GetOptions::new().with_range(0..5).with_if_match(wrong_etag)
+    ///             GetOptions::new().with_range(Some(0..5)).with_if_match(Some(wrong_etag))
     ///         )
     ///         .await
     ///     {
