@@ -36,7 +36,7 @@ async fn test_http_store_gzip() {
     let _ = http_store
         .get_opts(
             &Path::parse("LICENSE.txt").unwrap(),
-            GetOptions::new().with_range(GetRange::Bounded(0..100)),
+            GetOptions::new().with_range(Some(GetRange::Bounded(0..100))),
         )
         .await
         .unwrap();
@@ -53,7 +53,7 @@ async fn basic_wasm_get() {
     let _ = http_store
         .get_opts(
             &Path::parse("LICENSE.txt").unwrap(),
-            GetOptions::new().with_range(GetRange::Bounded(0..100)),
+            GetOptions::new().with_range(Some(GetRange::Bounded(0..100))),
         )
         .await
         .unwrap();
