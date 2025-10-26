@@ -114,7 +114,7 @@ pub async fn put_get_delete_list(storage: &DynObjectStore) {
     let bytes = range_result.unwrap();
     assert_eq!(bytes, data.slice(range.start as usize..range.end as usize));
 
-    let opts = GetOptions::new().with_range(GetRange::Bounded(2..5));
+    let opts = GetOptions::new().with_range(Some(GetRange::Bounded(2..5)));
     let result = storage.get_opts(&location, opts).await.unwrap();
     // Data is `"arbitrary data"`, length 14 bytes
     assert_eq!(result.meta.size, 14); // Should return full object size (#5272)
@@ -128,14 +128,14 @@ pub async fn put_get_delete_list(storage: &DynObjectStore) {
     // Should be a non-fatal error
     out_of_range_result.unwrap_err();
 
-    let opts = GetOptions::new().with_range(GetRange::Bounded(2..100));
+    let opts = GetOptions::new().with_range(Some(GetRange::Bounded(2..100)));
     let result = storage.get_opts(&location, opts).await.unwrap();
     assert_eq!(result.range, 2..14);
     assert_eq!(result.meta.size, 14);
     let bytes = result.bytes().await.unwrap();
     assert_eq!(bytes, b"bitrary data".as_ref());
 
-    let opts = GetOptions::new().with_range(GetRange::Suffix(2));
+    let opts = GetOptions::new().with_range(Some(GetRange::Suffix(2)));
     match storage.get_opts(&location, opts).await {
         Ok(result) => {
             assert_eq!(result.range, 12..14);
@@ -147,7 +147,7 @@ pub async fn put_get_delete_list(storage: &DynObjectStore) {
         Err(e) => panic!("{e}"),
     }
 
-    let opts = GetOptions::new().with_range(GetRange::Suffix(100));
+    let opts = GetOptions::new().with_range(Some(GetRange::Suffix(100)));
     match storage.get_opts(&location, opts).await {
         Ok(result) => {
             assert_eq!(result.range, 0..14);
@@ -159,14 +159,14 @@ pub async fn put_get_delete_list(storage: &DynObjectStore) {
         Err(e) => panic!("{e}"),
     }
 
-    let opts = GetOptions::new().with_range(GetRange::Offset(3));
+    let opts = GetOptions::new().with_range(Some(GetRange::Offset(3)));
     let result = storage.get_opts(&location, opts).await.unwrap();
     assert_eq!(result.range, 3..14);
     assert_eq!(result.meta.size, 14);
     let bytes = result.bytes().await.unwrap();
     assert_eq!(bytes, b"itrary data".as_ref());
 
-    let opts = GetOptions::new().with_range(GetRange::Offset(100));
+    let opts = GetOptions::new().with_range(Some(GetRange::Offset(100)));
     storage.get_opts(&location, opts).await.unwrap_err();
 
     let ranges = vec![0..1, 2..3, 0..5];
@@ -498,52 +498,55 @@ pub async fn get_opts(storage: &dyn ObjectStore) {
     storage.put(&path, "foo".into()).await.unwrap();
     let meta = storage.head(&path).await.unwrap();
 
-    let options = GetOptions::new().with_if_unmodified_since(meta.last_modified);
+    let options = GetOptions::new().with_if_unmodified_since(Some(meta.last_modified));
     match storage.get_opts(&path, options).await {
         Ok(_) | Err(Error::NotSupported { .. }) => {}
         Err(e) => panic!("{e}"),
     }
 
-    let options = GetOptions::new()
-        .with_if_unmodified_since(meta.last_modified + chrono::Duration::try_hours(10).unwrap());
+    let options = GetOptions::new().with_if_unmodified_since(Some(
+        meta.last_modified + chrono::Duration::try_hours(10).unwrap(),
+    ));
     match storage.get_opts(&path, options).await {
         Ok(_) | Err(Error::NotSupported { .. }) => {}
         Err(e) => panic!("{e}"),
     }
 
-    let options = GetOptions::new()
-        .with_if_unmodified_since(meta.last_modified - chrono::Duration::try_hours(10).unwrap());
+    let options = GetOptions::new().with_if_unmodified_since(Some(
+        meta.last_modified - chrono::Duration::try_hours(10).unwrap(),
+    ));
     match storage.get_opts(&path, options).await {
         Err(Error::Precondition { .. } | Error::NotSupported { .. }) => {}
         d => panic!("{d:?}"),
     }
 
-    let options = GetOptions::new().with_if_modified_since(meta.last_modified);
+    let options = GetOptions::new().with_if_modified_since(Some(meta.last_modified));
     match storage.get_opts(&path, options).await {
         Err(Error::NotModified { .. } | Error::NotSupported { .. }) => {}
         d => panic!("{d:?}"),
     }
 
-    let options = GetOptions::new()
-        .with_if_modified_since(meta.last_modified - chrono::Duration::try_hours(10).unwrap());
+    let options = GetOptions::new().with_if_modified_since(Some(
+        meta.last_modified - chrono::Duration::try_hours(10).unwrap(),
+    ));
     match storage.get_opts(&path, options).await {
         Ok(_) | Err(Error::NotSupported { .. }) => {}
         Err(e) => panic!("{e}"),
     }
 
     let tag = meta.e_tag.unwrap();
-    let options = GetOptions::new().with_if_match(tag.clone());
+    let options = GetOptions::new().with_if_match(Some(tag.clone()));
     storage.get_opts(&path, options).await.unwrap();
 
-    let options = GetOptions::new().with_if_match("invalid".to_string());
+    let options = GetOptions::new().with_if_match(Some("invalid".to_string()));
     let err = storage.get_opts(&path, options).await.unwrap_err();
     assert!(matches!(err, Error::Precondition { .. }), "{err}");
 
-    let options = GetOptions::new().with_if_none_match(tag.clone());
+    let options = GetOptions::new().with_if_none_match(Some(tag.clone()));
     let err = storage.get_opts(&path, options).await.unwrap_err();
     assert!(matches!(err, Error::NotModified { .. }), "{err}");
 
-    let options = GetOptions::new().with_if_none_match("invalid".to_string());
+    let options = GetOptions::new().with_if_none_match(Some("invalid".to_string()));
     storage.get_opts(&path, options).await.unwrap();
 
     let result = storage.put(&path, "test".into()).await.unwrap();
@@ -553,17 +556,17 @@ pub async fn get_opts(storage: &dyn ObjectStore) {
     let meta = storage.head(&path).await.unwrap();
     assert_eq!(meta.e_tag.unwrap(), new_tag);
 
-    let options = GetOptions::new().with_if_match(new_tag.clone());
+    let options = GetOptions::new().with_if_match(Some(new_tag.clone()));
     storage.get_opts(&path, options).await.unwrap();
 
-    let options = GetOptions::new().with_if_match(tag);
+    let options = GetOptions::new().with_if_match(Some(tag));
     let err = storage.get_opts(&path, options).await.unwrap_err();
     assert!(matches!(err, Error::Precondition { .. }), "{err}");
 
     if let Some(version) = meta.version {
         storage.put(&path, "bar".into()).await.unwrap();
 
-        let options = GetOptions::new().with_version(version);
+        let options = GetOptions::new().with_version(Some(version));
 
         // Can retrieve previous version
         let get_opts = storage.get_opts(&path, options).await.unwrap();

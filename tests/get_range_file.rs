@@ -115,7 +115,8 @@ async fn test_get_opts_over_range() {
     let expected = Bytes::from_static(b"hello world");
     store.put(&path, expected.clone().into()).await.unwrap();
 
-    let opts = GetOptions::new().with_range(GetRange::Bounded(0..(expected.len() as u64 * 2)));
+    let opts =
+        GetOptions::new().with_range(Some(GetRange::Bounded(0..(expected.len() as u64 * 2))));
     let res = store.get_opts(&path, opts).await.unwrap();
     assert_eq!(res.range, 0..expected.len() as u64);
     assert_eq!(res.bytes().await.unwrap(), expected);
@@ -135,15 +136,15 @@ async fn test_get_range_opts_with_etag() {
     let etag = file.meta.e_tag.clone().unwrap();
 
     let opts = GetOptions::new()
-        .with_if_match(etag)
-        .with_range(0..(expected.len() as u64 * 2));
+        .with_if_match(Some(etag))
+        .with_range(Some(0..(expected.len() as u64 * 2)));
     let res = store.get_opts(&path, opts).await.unwrap();
     assert_eq!(res.bytes().await.unwrap(), expected);
 
     // pulling a file with an invalid etag should fail
     let opts = GetOptions::new()
-        .with_if_match("invalid-etag")
-        .with_range(0..(expected.len() as u64 * 2));
+        .with_if_match(Some("invalid-etag"))
+        .with_range(Some(0..(expected.len() as u64 * 2)));
     let err = store.get_opts(&path, opts).await;
     assert!(err.is_err());
 }

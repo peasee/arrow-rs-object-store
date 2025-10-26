@@ -128,7 +128,7 @@
 //! to support a wide variety of user-defined store configurations, with minimal additional
 //! application complexity.
 //!
-//! ```no_run
+//! ```no_run,ignore-wasm32
 //! # #[cfg(feature = "aws")] {
 //! # use url::Url;
 //! # use object_store::{parse_url, parse_url_opts};
@@ -163,7 +163,7 @@
 //! Use the [`ObjectStore::list`] method to iterate over objects in
 //! remote storage or files in the local filesystem:
 //!
-//! ```
+//! ```ignore-wasm32
 //! # use object_store::local::LocalFileSystem;
 //! # use std::sync::Arc;
 //! # use object_store::{path::Path, ObjectStore};
@@ -207,7 +207,7 @@
 //! Use the [`ObjectStore::get`] method to fetch the data bytes
 //! from remote storage or files in the local filesystem as a stream.
 //!
-//! ```
+//! ```ignore-wasm32
 //! # use futures::TryStreamExt;
 //! # use object_store::local::LocalFileSystem;
 //! # use std::sync::Arc;
@@ -254,7 +254,7 @@
 //!
 //! Use the [`ObjectStore::put`] method to atomically write data.
 //!
-//! ```
+//! ```ignore-wasm32
 //! # use object_store::local::LocalFileSystem;
 //! # use object_store::{ObjectStore, PutPayload};
 //! # use std::sync::Arc;
@@ -275,7 +275,7 @@
 //!
 //! Use the [`ObjectStore::put_multipart`] method to atomically write a large amount of data
 //!
-//! ```
+//! ```ignore-wasm32
 //! # use object_store::local::LocalFileSystem;
 //! # use object_store::{ObjectStore, WriteMultipart};
 //! # use std::sync::Arc;
@@ -304,7 +304,7 @@
 //! [`ObjectStore::get_ranges`] provides an efficient way to perform such vectored IO, and will
 //! automatically coalesce adjacent ranges into an appropriate number of parallel requests.
 //!
-//! ```
+//! ```ignore-wasm32
 //! # use object_store::local::LocalFileSystem;
 //! # use object_store::ObjectStore;
 //! # use std::sync::Arc;
@@ -326,7 +326,7 @@
 //!
 //! To retrieve ranges from a versioned object, use [`ObjectStore::get_opts`] by specifying the range in the [`GetOptions`].
 //!
-//! ```
+//! ```ignore-wasm32
 //! # use object_store::local::LocalFileSystem;
 //! # use object_store::ObjectStore;
 //! # use object_store::GetOptions;
@@ -362,7 +362,7 @@
 //! possible to instead allocate memory in chunks and avoid bump allocating. [`PutPayloadMut`]
 //! encapsulates this approach
 //!
-//! ```
+//! ```ignore-wasm32
 //! # use object_store::local::LocalFileSystem;
 //! # use object_store::{ObjectStore, PutPayloadMut};
 //! # use std::sync::Arc;
@@ -662,7 +662,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     ///
     /// This example uses a basic local filesystem object store to get an object.
     ///
-    /// ```
+    /// ```ignore-wasm32
     /// # use object_store::local::LocalFileSystem;
     /// # use tempfile::tempdir;
     /// # use object_store::{path::Path, ObjectStore};
@@ -696,7 +696,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     /// On the local filesystem, supplying an invalid etag will error.
     /// Versioned object stores will return the specified object version, if it exists.
     ///
-    /// ```
+    /// ```ignore-wasm32
     /// # use object_store::local::LocalFileSystem;
     /// # use tempfile::tempdir;
     /// # use object_store::{path::Path, ObjectStore, GetOptions};
@@ -753,7 +753,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     ///
     /// To retrieve a range of bytes from a versioned object, specify the range in the [`GetOptions`] supplied to this method.
     ///
-    /// ```
+    /// ```ignore-wasm32
     /// # use object_store::local::LocalFileSystem;
     /// # use tempfile::tempdir;
     /// # use object_store::{path::Path, ObjectStore, GetOptions};
@@ -821,7 +821,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     ///
     /// This example uses a basic local filesystem object store to get a byte range from an object.
     ///
-    /// ```
+    /// ```ignore-wasm32
     /// # use object_store::local::LocalFileSystem;
     /// # use tempfile::tempdir;
     /// # use object_store::{path::Path, ObjectStore};
@@ -846,7 +846,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     /// }
     /// ```
     async fn get_range(&self, location: &Path, range: Range<u64>) -> Result<Bytes> {
-        let options = GetOptions::new().with_range(range);
+        let options = GetOptions::new().with_range(Some(range));
         self.get_opts(location, options).await?.bytes().await
     }
 
@@ -887,7 +887,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     /// filesystems, GCP, and Azure return an error, while S3 and in-memory will
     /// return Ok. If it is an error, it will be [`Error::NotFound`].
     ///
-    /// ```
+    /// ```ignore-wasm32
     /// # use futures::{StreamExt, TryStreamExt};
     /// # use object_store::local::LocalFileSystem;
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -1231,7 +1231,6 @@ impl GetOptions {
     }
 
     /// Create a new [`GetOptions`]
-    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -1240,8 +1239,8 @@ impl GetOptions {
     ///
     /// See [`GetOptions::if_match`]
     #[must_use]
-    pub fn with_if_match(mut self, etag: impl Into<String>) -> Self {
-        self.if_match = Some(etag.into());
+    pub fn with_if_match(mut self, etag: Option<impl Into<String>>) -> Self {
+        self.if_match = etag.map(Into::into);
         self
     }
 
@@ -1249,8 +1248,8 @@ impl GetOptions {
     ///
     /// See [`GetOptions::if_none_match`]
     #[must_use]
-    pub fn with_if_none_match(mut self, etag: impl Into<String>) -> Self {
-        self.if_none_match = Some(etag.into());
+    pub fn with_if_none_match(mut self, etag: Option<impl Into<String>>) -> Self {
+        self.if_none_match = etag.map(Into::into);
         self
     }
 
@@ -1258,8 +1257,8 @@ impl GetOptions {
     ///
     /// See [`GetOptions::if_modified_since`]
     #[must_use]
-    pub fn with_if_modified_since(mut self, dt: impl Into<DateTime<Utc>>) -> Self {
-        self.if_modified_since = Some(dt.into());
+    pub fn with_if_modified_since(mut self, dt: Option<impl Into<DateTime<Utc>>>) -> Self {
+        self.if_modified_since = dt.map(Into::into);
         self
     }
 
@@ -1267,8 +1266,8 @@ impl GetOptions {
     ///
     /// See [`GetOptions::if_unmodified_since`]
     #[must_use]
-    pub fn with_if_unmodified_since(mut self, dt: impl Into<DateTime<Utc>>) -> Self {
-        self.if_unmodified_since = Some(dt.into());
+    pub fn with_if_unmodified_since(mut self, dt: Option<impl Into<DateTime<Utc>>>) -> Self {
+        self.if_unmodified_since = dt.map(Into::into);
         self
     }
 
@@ -1276,8 +1275,8 @@ impl GetOptions {
     ///
     /// See [`GetOptions::range`]
     #[must_use]
-    pub fn with_range(mut self, range: impl Into<GetRange>) -> Self {
-        self.range = Some(range.into());
+    pub fn with_range(mut self, range: Option<impl Into<GetRange>>) -> Self {
+        self.range = range.map(Into::into);
         self
     }
 
@@ -1285,8 +1284,8 @@ impl GetOptions {
     ///
     /// See [`GetOptions::version`]
     #[must_use]
-    pub fn with_version(mut self, version: impl Into<String>) -> Self {
-        self.version = Some(version.into());
+    pub fn with_version(mut self, version: Option<impl Into<String>>) -> Self {
+        self.version = version.map(Into::into);
         self
     }
 
@@ -1961,12 +1960,12 @@ mod tests {
         assert!(options.extensions.get::<&str>().is_none());
 
         let options = options
-            .with_if_match("etag-match")
-            .with_if_none_match("etag-none-match")
-            .with_if_modified_since(dt)
-            .with_if_unmodified_since(dt)
-            .with_range(0..100)
-            .with_version("version-1")
+            .with_if_match(Some("etag-match"))
+            .with_if_none_match(Some("etag-none-match"))
+            .with_if_modified_since(Some(dt))
+            .with_if_unmodified_since(Some(dt))
+            .with_range(Some(0..100))
+            .with_version(Some("version-1"))
             .with_head(true)
             .with_extensions(extensions.clone());
 
